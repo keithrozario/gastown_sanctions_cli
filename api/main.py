@@ -3,6 +3,9 @@ from contextlib import asynccontextmanager
 from typing import Annotated
 
 from fastapi import FastAPI, HTTPException, Query
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from google.cloud import bigquery
 
 from models import (
@@ -30,6 +33,21 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="OFAC Sanctions Screening API", lifespan=lifespan)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type"],
+)
+
+app.mount("/ui", StaticFiles(directory="ui", html=True), name="ui")
+
+
+@app.get("/")
+def index():
+    return FileResponse("ui/index.html")
 
 
 def _client() -> bigquery.Client:

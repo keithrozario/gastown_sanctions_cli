@@ -1,0 +1,815 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sanction Screener // OFAC SDN</title>
+  <style>
+    /* ── Reset ─────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    /* ── Base ───────────────────────────────────────────────── */
+    :root {
+      --green:      #00ff41;
+      --green-mid:  #00cc33;
+      --green-dim:  #006622;
+      --green-dark: #002208;
+      --red:        #ff3300;
+      --amber:      #ffaa00;
+      --bg:         #050f05;
+      --glow:       0 0 8px rgba(0,255,65,0.6);
+      --glow-sm:    0 0 4px rgba(0,255,65,0.4);
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--green);
+      font-family: 'Courier New', 'Lucida Console', 'Monaco', monospace;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    /* ── CRT container ──────────────────────────────────────── */
+    .crt {
+      min-height: 100vh;
+      padding: 28px 20px 60px;
+      position: relative;
+    }
+
+    /* Scanlines */
+    .crt::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 3px,
+        rgba(0,0,0,0.18) 3px,
+        rgba(0,0,0,0.18) 4px
+      );
+      pointer-events: none;
+      z-index: 100;
+    }
+
+    /* Vignette */
+    .crt::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: radial-gradient(ellipse at center, transparent 60%, rgba(0,0,0,0.55) 100%);
+      pointer-events: none;
+      z-index: 99;
+    }
+
+    /* ── Layout ─────────────────────────────────────────────── */
+    .terminal {
+      max-width: 920px;
+      margin: 0 auto;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* ── ASCII Art ──────────────────────────────────────────── */
+    .ascii-art {
+      font-size: 10px;
+      line-height: 1.15;
+      color: var(--green);
+      text-shadow: var(--glow);
+      white-space: pre;
+      overflow-x: auto;
+      margin-bottom: 10px;
+      letter-spacing: 0;
+    }
+
+    /* ── Typography ─────────────────────────────────────────── */
+    .tagline {
+      color: var(--green-dim);
+      font-size: 12px;
+      margin-bottom: 4px;
+    }
+
+    .section-header {
+      color: var(--green-mid);
+      font-size: 12px;
+      letter-spacing: 2px;
+      margin-bottom: 12px;
+      text-shadow: var(--glow-sm);
+    }
+
+    .divider {
+      color: var(--green-dark);
+      margin: 18px 0;
+      font-size: 13px;
+      overflow: hidden;
+      white-space: nowrap;
+    }
+
+    /* ── Form elements ──────────────────────────────────────── */
+    .field {
+      margin-bottom: 14px;
+    }
+
+    label {
+      display: block;
+      color: var(--green-dim);
+      font-size: 11px;
+      letter-spacing: 1px;
+      margin-bottom: 4px;
+    }
+
+    label .hint {
+      color: #003d11;
+      font-size: 10px;
+    }
+
+    input[type="text"],
+    input[type="password"],
+    textarea {
+      width: 100%;
+      background: #020a02;
+      border: 1px solid var(--green-dark);
+      color: var(--green);
+      font-family: inherit;
+      font-size: 13px;
+      padding: 7px 10px;
+      outline: none;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+
+    input[type="text"]:focus,
+    input[type="password"]:focus,
+    textarea:focus {
+      border-color: var(--green-mid);
+      box-shadow: var(--glow-sm);
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 120px;
+    }
+
+    /* ── Mode toggle ────────────────────────────────────────── */
+    .mode-toggle {
+      margin-bottom: 12px;
+      font-size: 12px;
+    }
+
+    .mode-btn {
+      background: none;
+      border: none;
+      font-family: inherit;
+      font-size: 12px;
+      cursor: pointer;
+      color: var(--green-dim);
+      letter-spacing: 1px;
+      padding: 0;
+      transition: color 0.15s;
+    }
+
+    .mode-btn.active,
+    .mode-btn:hover {
+      color: var(--green);
+      text-shadow: var(--glow-sm);
+    }
+
+    .mode-sep { color: var(--green-dark); }
+
+    /* ── Drop zone ──────────────────────────────────────────── */
+    .dropzone {
+      border: 1px dashed var(--green-dark);
+      padding: 36px 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      position: relative;
+    }
+
+    .dropzone:hover,
+    .dropzone.drag-over {
+      border-color: var(--green-mid);
+      background: rgba(0,255,65,0.03);
+      box-shadow: inset 0 0 24px rgba(0,255,65,0.04);
+    }
+
+    .dropzone input[type="file"] { display: none; }
+
+    .dropzone-icon {
+      font-size: 22px;
+      color: var(--green-dim);
+      margin-bottom: 8px;
+      text-shadow: var(--glow-sm);
+    }
+
+    .dropzone-label {
+      color: var(--green-mid);
+      font-size: 13px;
+      letter-spacing: 2px;
+      margin-bottom: 6px;
+    }
+
+    .dropzone-sub {
+      color: var(--green-dark);
+      font-size: 11px;
+      letter-spacing: 1px;
+    }
+
+    .file-info {
+      margin-top: 10px;
+      font-size: 12px;
+      color: var(--green-mid);
+      min-height: 18px;
+    }
+
+    /* ── Advanced options ───────────────────────────────────── */
+    .adv-toggle {
+      font-size: 11px;
+      color: var(--green-dim);
+      cursor: pointer;
+      background: none;
+      border: none;
+      font-family: inherit;
+      letter-spacing: 1px;
+      padding: 0;
+      margin-top: 10px;
+      display: block;
+    }
+    .adv-toggle:hover { color: var(--green-mid); }
+
+    .adv-panel {
+      margin-top: 10px;
+      display: none;
+      gap: 16px;
+    }
+    .adv-panel.open { display: flex; }
+
+    .adv-field {
+      flex: 1;
+    }
+
+    .adv-field label {
+      margin-bottom: 4px;
+    }
+
+    .adv-field input {
+      width: 100%;
+    }
+
+    /* ── Actions ────────────────────────────────────────────── */
+    .actions {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin: 18px 0;
+    }
+
+    .btn-primary {
+      background: var(--green);
+      color: var(--bg);
+      border: none;
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: bold;
+      letter-spacing: 3px;
+      padding: 10px 28px;
+      cursor: pointer;
+      transition: background 0.15s, box-shadow 0.15s;
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      background: #39ff14;
+      box-shadow: 0 0 20px rgba(0,255,65,0.5);
+    }
+
+    .btn-primary:disabled {
+      background: var(--green-dark);
+      color: var(--green-dim);
+      cursor: not-allowed;
+    }
+
+    .btn-secondary {
+      background: none;
+      border: 1px solid var(--green-dark);
+      color: var(--green-dim);
+      font-family: inherit;
+      font-size: 12px;
+      letter-spacing: 1px;
+      padding: 9px 16px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .btn-secondary:hover {
+      border-color: var(--green-dim);
+      color: var(--green-mid);
+    }
+
+    /* ── Output ─────────────────────────────────────────────── */
+    .output-section { min-height: 200px; }
+
+    #output {
+      font-size: 13px;
+      line-height: 1.7;
+    }
+
+    /* Output line types */
+    .o-dim    { color: var(--green-dark); }
+    .o-cmd    { color: var(--green-dim); }
+    .o-info   { color: var(--green-mid); }
+    .o-ok     { color: var(--green); }
+    .o-match  { color: var(--red); }
+    .o-clear  { color: var(--green); }
+    .o-warn   { color: var(--amber); }
+
+    .o-entity-header {
+      color: var(--green-mid);
+      border-bottom: 1px solid var(--green-dark);
+      padding-bottom: 2px;
+      margin-top: 4px;
+    }
+
+    .badge-match {
+      background: var(--red);
+      color: #000;
+      padding: 1px 8px;
+      font-weight: bold;
+      letter-spacing: 2px;
+    }
+
+    .badge-clear {
+      background: none;
+      border: 1px solid var(--green-dim);
+      color: var(--green-mid);
+      padding: 1px 8px;
+      letter-spacing: 2px;
+    }
+
+    .badge-flagged {
+      background: var(--red);
+      color: #fff;
+      padding: 2px 14px;
+      font-size: 15px;
+      font-weight: bold;
+      letter-spacing: 4px;
+      text-shadow: 0 0 8px rgba(255,51,0,0.8);
+    }
+
+    .badge-safe {
+      background: var(--green);
+      color: #000;
+      padding: 2px 14px;
+      font-size: 15px;
+      font-weight: bold;
+      letter-spacing: 4px;
+      text-shadow: 0 0 8px rgba(0,255,65,0.8);
+    }
+
+    .hit-row {
+      margin-left: 20px;
+      color: var(--green-dim);
+      font-size: 12px;
+    }
+
+    /* ── Cursor blink ───────────────────────────────────────── */
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0; }
+    }
+
+    .cursor {
+      display: inline-block;
+      width: 9px;
+      height: 14px;
+      background: var(--green);
+      vertical-align: text-bottom;
+      animation: blink 1s step-end infinite;
+    }
+
+    /* ── Spinner ────────────────────────────────────────────── */
+    @keyframes spin-chars {
+      0%   { content: '[ \\ ]'; }
+      25%  { content: '[ | ]'; }
+      50%  { content: '[ / ]'; }
+      75%  { content: '[ - ]'; }
+      100% { content: '[ \\ ]'; }
+    }
+
+    .spinner::before {
+      content: '[ - ]';
+      animation: spin-chars 0.4s linear infinite;
+    }
+
+    /* ── Responsive ─────────────────────────────────────────── */
+    @media (max-width: 600px) {
+      .ascii-art { font-size: 6px; }
+      body { font-size: 13px; }
+    }
+  </style>
+</head>
+<body>
+<div class="crt">
+<main class="terminal">
+
+  <!-- ── Header ─────────────────────────────────────────────── -->
+  <header>
+    <pre class="ascii-art">
+███████╗ █████╗ ███╗   ██╗ ██████╗████████╗██╗ ██████╗ ███╗   ██╗
+██╔════╝██╔══██╗████╗  ██║██╔════╝╚══██╔══╝██║██╔═══██╗████╗  ██║
+███████╗███████║██╔██╗ ██║██║        ██║   ██║██║   ██║██╔██╗ ██║
+╚════██║██╔══██║██║╚██╗██║██║        ██║   ██║██║   ██║██║╚██╗██║
+███████║██║  ██║██║ ╚████║╚██████╗   ██║   ██║╚██████╔╝██║ ╚████║
+╚══════╝╚═╝  ╚═╝╚═╝  ╚═══╝ ╚═════╝   ╚═╝   ╚═╝ ╚═════╝ ╚═╝  ╚═══╝
+
+███████╗ ██████╗██████╗ ███████╗███████╗███╗   ██╗███████╗██████╗
+██╔════╝██╔════╝██╔══██╗██╔════╝██╔════╝████╗  ██║██╔════╝██╔══██╗
+███████╗██║     ██████╔╝█████╗  █████╗  ██╔██╗ ██║█████╗  ██████╔╝
+╚════██║██║     ██╔══██╗██╔══╝  ██╔══╝  ██║╚██╗██║██╔══╝  ██╔══██╗
+███████║╚██████╗██║  ██║███████╗███████╗██║ ╚████║███████╗██║  ██║
+╚══════╝ ╚═════╝╚═╝  ╚═╝╚══════╝╚══════╝╚═╝  ╚═══╝╚══════╝╚═╝  ╚═╝</pre>
+    <p class="tagline">OFAC SDN Sanctions List Screener // Vertex AI + BigQuery // v1.0</p>
+    <div class="divider">════════════════════════════════════════════════════════════════════════════════════</div>
+  </header>
+
+  <!-- ── Configuration ──────────────────────────────────────── -->
+  <section>
+    <div class="section-header">// CONFIGURATION</div>
+    <div class="field">
+      <label>API_ENDPOINT</label>
+      <input type="text" id="api-url"
+             placeholder="https://ofac-screening-api-z5l5fzb65q-as.a.run.app">
+    </div>
+    <div class="field">
+      <label>IDENTITY_TOKEN
+        <span class="hint">  # leave blank if public  |  gcloud auth print-identity-token</span>
+      </label>
+      <input type="password" id="auth-token" placeholder="eyJ...">
+    </div>
+  </section>
+
+  <div class="divider">────────────────────────────────────────────────────────────────────────────────────</div>
+
+  <!-- ── Document Input ─────────────────────────────────────── -->
+  <section>
+    <div class="section-header">// DOCUMENT INPUT</div>
+
+    <div class="mode-toggle">
+      <button class="mode-btn active" id="btn-upload" onclick="switchMode('upload')">[ UPLOAD FILE ]</button>
+      <span class="mode-sep"> &nbsp;|&nbsp; </span>
+      <button class="mode-btn" id="btn-paste" onclick="switchMode('paste')">[ PASTE TEXT ]</button>
+    </div>
+
+    <!-- Upload mode -->
+    <div id="mode-upload">
+      <div class="dropzone" id="dropzone"
+           onclick="document.getElementById('file-input').click()"
+           ondragover="onDragOver(event)"
+           ondragleave="onDragLeave(event)"
+           ondrop="onDrop(event)">
+        <input type="file" id="file-input"
+               accept=".txt,.md,.csv,.log,.json,.xml,.html,.py,.js,.ts,.java,.c,.cpp"
+               onchange="onFileSelect(event)">
+        <div class="dropzone-icon">[ ■ ]</div>
+        <div class="dropzone-label">DROP FILE OR CLICK TO BROWSE</div>
+        <div class="dropzone-sub">Plain-text files &nbsp;·&nbsp; .txt .md .csv .log .json .xml and more</div>
+      </div>
+      <div class="file-info" id="file-info"></div>
+    </div>
+
+    <!-- Paste mode -->
+    <div id="mode-paste" style="display:none">
+      <textarea id="paste-text"
+                placeholder="# Paste or type document text here&#10;# e.g.  Wire transfer from USAMA BIN LADIN — amount USD 50,000"></textarea>
+    </div>
+
+    <!-- Advanced options -->
+    <button class="adv-toggle" onclick="toggleAdv()">
+      <span id="adv-arrow">▶</span> ADVANCED OPTIONS
+    </button>
+    <div class="adv-panel" id="adv-panel">
+      <div class="adv-field">
+        <label>THRESHOLD &nbsp;<span class="hint"># max edit distance 0–10, default 4</span></label>
+        <input type="text" id="threshold" value="4" style="width:80px">
+      </div>
+      <div class="adv-field">
+        <label>LIMIT_PER_ENTITY &nbsp;<span class="hint"># max SDN hits per entity 1–20, default 5</span></label>
+        <input type="text" id="limit-per-entity" value="5" style="width:80px">
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Actions ────────────────────────────────────────────── -->
+  <div class="actions">
+    <button class="btn-primary" id="screen-btn" onclick="screenDocument()">
+      ▶&nbsp; SCREEN DOCUMENT
+    </button>
+    <button class="btn-secondary" onclick="clearOutput()">[ CLEAR ]</button>
+  </div>
+
+  <div class="divider">────────────────────────────────────────────────────────────────────────────────────</div>
+
+  <!-- ── Output ─────────────────────────────────────────────── -->
+  <section class="output-section">
+    <div class="section-header">// OUTPUT</div>
+    <div id="output">
+      <span class="o-dim">Awaiting document input...</span>
+      <span class="cursor"></span>
+    </div>
+  </section>
+
+</main>
+</div>
+
+<script>
+/* ── State ─────────────────────────────────────────────────── */
+let currentMode = 'upload';
+let selectedFile  = null;   // File object
+let fileText      = '';     // Content of the selected file
+let advOpen       = false;
+
+/* ── Mode switching ────────────────────────────────────────── */
+function switchMode(mode) {
+  currentMode = mode;
+  document.getElementById('mode-upload').style.display = mode === 'upload' ? '' : 'none';
+  document.getElementById('mode-paste').style.display  = mode === 'paste'  ? '' : 'none';
+  document.getElementById('btn-upload').classList.toggle('active', mode === 'upload');
+  document.getElementById('btn-paste').classList.toggle('active', mode === 'paste');
+}
+
+/* ── Advanced options ──────────────────────────────────────── */
+function toggleAdv() {
+  advOpen = !advOpen;
+  document.getElementById('adv-panel').classList.toggle('open', advOpen);
+  document.getElementById('adv-arrow').textContent = advOpen ? '▼' : '▶';
+}
+
+/* ── Drag & drop ───────────────────────────────────────────── */
+function onDragOver(e) {
+  e.preventDefault();
+  document.getElementById('dropzone').classList.add('drag-over');
+}
+
+function onDragLeave(e) {
+  document.getElementById('dropzone').classList.remove('drag-over');
+}
+
+function onDrop(e) {
+  e.preventDefault();
+  document.getElementById('dropzone').classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (file) loadFile(file);
+}
+
+function onFileSelect(e) {
+  const file = e.target.files[0];
+  if (file) loadFile(file);
+}
+
+function loadFile(file) {
+  selectedFile = file;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    fileText = e.target.result;
+    const size = (file.size / 1024).toFixed(1);
+    document.getElementById('file-info').textContent =
+      `> Loaded: ${file.name}  (${size} KB · ${fileText.length.toLocaleString()} chars)`;
+  };
+  reader.onerror = () => {
+    document.getElementById('file-info').textContent = '> Error reading file.';
+  };
+  reader.readAsText(file);
+}
+
+/* ── Output helpers ────────────────────────────────────────── */
+function clearOutput() {
+  const out = document.getElementById('output');
+  out.innerHTML = '<span class="o-dim">Awaiting document input...</span><span class="cursor"></span>';
+}
+
+let _lineQueue = [];
+let _printing  = false;
+
+function flushQueue() {
+  if (_printing || _lineQueue.length === 0) return;
+  _printing = true;
+  const out  = document.getElementById('output');
+  const item = _lineQueue.shift();
+  // Remove trailing cursor before adding new content
+  const cur = out.querySelector('.cursor');
+  if (cur) cur.remove();
+
+  const div = document.createElement('div');
+  if (item.html) {
+    div.innerHTML = item.html;
+  } else {
+    const span = document.createElement('span');
+    span.className = item.cls || '';
+    span.textContent = item.text;
+    div.appendChild(span);
+  }
+  out.appendChild(div);
+  out.scrollTop = out.scrollHeight;
+
+  setTimeout(() => {
+    _printing = false;
+    flushQueue();
+  }, item.delay || 0);
+}
+
+function printLine(text, cls, delay) {
+  _lineQueue.push({ text, cls, delay: delay || 18 });
+  flushQueue();
+}
+
+function printHTML(html, delay) {
+  _lineQueue.push({ html, delay: delay || 18 });
+  flushQueue();
+}
+
+function printBlank() { printLine('', 'o-dim', 8); }
+
+function addCursor() {
+  const out = document.getElementById('output');
+  const cur = out.querySelector('.cursor');
+  if (!cur) {
+    const c = document.createElement('span');
+    c.className = 'cursor';
+    out.appendChild(c);
+  }
+}
+
+/* ── Score label ───────────────────────────────────────────── */
+function scoreLabel(score) {
+  switch (score) {
+    case 1: return 'exact match';
+    case 2: return 'edit distance ≤ 2';
+    case 3: return 'fuzzy match';
+    case 4: return 'phonetic (SOUNDEX)';
+    default: return `score ${score}`;
+  }
+}
+
+/* ── Main screen function ──────────────────────────────────── */
+async function screenDocument() {
+  // Collect input text
+  let text = '';
+  if (currentMode === 'upload') {
+    if (!fileText) {
+      alert('Please upload a file first.');
+      return;
+    }
+    text = fileText;
+  } else {
+    text = document.getElementById('paste-text').value.trim();
+    if (!text) {
+      alert('Please enter some text.');
+      return;
+    }
+  }
+
+  const apiUrl   = (document.getElementById('api-url').value.trim() || window.location.origin).replace(/\/$/, '');
+  const token    = document.getElementById('auth-token').value.trim();
+  const threshold      = parseInt(document.getElementById('threshold').value) || 4;
+  const limitPerEntity = parseInt(document.getElementById('limit-per-entity').value) || 5;
+
+  // Reset output
+  const out = document.getElementById('output');
+  out.innerHTML = '';
+  _lineQueue = [];
+  _printing  = false;
+
+  // Disable button
+  const btn = document.getElementById('screen-btn');
+  btn.disabled = true;
+  btn.textContent = '⟳  SCANNING...';
+
+  const docName = (currentMode === 'upload' && selectedFile)
+    ? selectedFile.name
+    : 'pasted text';
+
+  // Print startup sequence
+  printLine(`> Initializing OFAC SDN screening...`, 'o-cmd');
+  printLine(`> Endpoint  : ${apiUrl}`, 'o-dim');
+  printLine(`> Document  : ${docName}  (${text.length.toLocaleString()} chars)`, 'o-dim');
+  printLine(`> Threshold : ${threshold}  |  Limit per entity : ${limitPerEntity}`, 'o-dim');
+  printBlank();
+  printLine(`> Sending document to Vertex AI for entity extraction...`, 'o-cmd');
+  printLine(`> Model     : gemini-2.0-flash-001`, 'o-dim');
+  printBlank();
+
+  // Build request
+  const headers = { 'Content-Type': 'application/json' };
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+
+  let data;
+  try {
+    const resp = await fetch(`${apiUrl}/screen/document`, {
+      method:  'POST',
+      headers: headers,
+      body:    JSON.stringify({
+        text,
+        threshold,
+        limit_per_entity: limitPerEntity,
+      }),
+    });
+
+    if (!resp.ok) {
+      const errText = await resp.text();
+      printLine(`> ERROR: HTTP ${resp.status}`, 'o-match');
+      printLine(`> ${errText.slice(0, 200)}`, 'o-match');
+      finishScan(btn);
+      addCursor();
+      return;
+    }
+
+    data = await resp.json();
+  } catch (err) {
+    printLine(`> NETWORK ERROR: ${err.message}`, 'o-match');
+    printLine(`> Check API endpoint and identity token.`, 'o-warn');
+    finishScan(btn);
+    addCursor();
+    return;
+  }
+
+  // Render results
+  const { entities_extracted, screening_results, document_clear,
+          total_entities_extracted, total_matches } = data;
+
+  printLine(`> Entities extracted : ${total_entities_extracted}`, 'o-info');
+  printBlank();
+  printHTML(`<span class="o-dim">${'─'.repeat(72)}</span>`);
+  printBlank();
+
+  for (const result of screening_results) {
+    const typeTag = `[${result.entity_type.toUpperCase()}]`;
+    printHTML(
+      `<span class="o-entity-header">&gt; ${result.entity} &nbsp;<span class="o-dim">${typeTag}</span></span>`
+    );
+
+    if (result.is_match) {
+      printHTML(
+        `<span style="margin-left:16px">&nbsp;&nbsp;<span class="badge-match">&#9608; MATCH &#9608;</span>&nbsp; ` +
+        `<span class="o-match">${result.hits.length} SDN hit${result.hits.length !== 1 ? 's' : ''}</span></span>`
+      );
+      for (const hit of result.hits) {
+        const conf  = scoreLabel(hit.match_score);
+        const progs = hit.programs && hit.programs.length ? hit.programs.join(', ') : '—';
+        printHTML(
+          `<div class="hit-row">` +
+          `  &#9492;&#9472; <span class="o-warn">entry #${hit.sdn_entry_id}</span>` +
+          `  &nbsp;·&nbsp; <span class="o-dim">${conf}</span>` +
+          (hit.primary_name ? `  &nbsp;·&nbsp; ${esc(hit.primary_name)}` : '') +
+          `  &nbsp;·&nbsp; <span class="o-dim">programs: ${esc(progs)}</span>` +
+          `</div>`
+        );
+      }
+    } else {
+      printHTML(
+        `<span style="margin-left:16px">&nbsp;&nbsp;<span class="badge-clear">&nbsp;CLEAR&nbsp;</span>` +
+        `&nbsp; <span class="o-dim">no SDN matches</span></span>`
+      );
+    }
+    printBlank();
+  }
+
+  printHTML(`<span class="o-dim">${'─'.repeat(72)}</span>`);
+  printBlank();
+
+  if (document_clear) {
+    printHTML(
+      `<span>&gt; DOCUMENT STATUS :&nbsp; <span class="badge-safe">&#10003; CLEAR</span></span>`
+    );
+  } else {
+    printHTML(
+      `<span>&gt; DOCUMENT STATUS :&nbsp; <span class="badge-flagged">&#9608; FLAGGED &#9608;</span></span>`
+    );
+  }
+
+  const entityWord = total_entities_extracted === 1 ? 'entity' : 'entities';
+  printLine(
+    `> ${total_matches} of ${total_entities_extracted} ${entityWord} matched the OFAC SDN list`,
+    document_clear ? 'o-ok' : 'o-match'
+  );
+  printBlank();
+  printHTML(`<span class="o-dim">${'─'.repeat(72)}</span>`);
+
+  finishScan(btn);
+  addCursor();
+}
+
+/* ── Helpers ───────────────────────────────────────────────── */
+function finishScan(btn) {
+  btn.disabled = false;
+  btn.textContent = '▶  SCREEN DOCUMENT';
+}
+
+function esc(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+</script>
+</body>
+</html>

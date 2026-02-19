@@ -40,6 +40,9 @@ Full architecture and data model: see **[IMPLEMENTATION.md](IMPLEMENTATION.md)**
 The screening API is publicly available:
 
 ```bash
+# Open the web UI (terminal-style, served directly from Cloud Run)
+open "$CLOUD_RUN_URL/"
+
 # Health check
 curl "$CLOUD_RUN_URL/health"
 
@@ -69,10 +72,12 @@ rig/
 │
 ├── api/                    ← Cloud Run screening API
 │   ├── README.md           ← API endpoint documentation
-│   ├── main.py             ← FastAPI app
+│   ├── main.py             ← FastAPI app (serves API + UI)
 │   ├── queries.py          ← BigQuery fuzzy-screening queries
 │   ├── models.py           ← Pydantic request/response models
 │   ├── vertex.py           ← Vertex AI Gemini entity extraction
+│   ├── ui/
+│   │   └── index.html      ← Terminal-style web UI (served at /)
 │   ├── requirements.txt    ← Python dependencies
 │   ├── Dockerfile          ← Container definition
 │   ├── deploy.sh           ← Build image → terraform → test

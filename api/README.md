@@ -203,7 +203,8 @@ cd .. && .venv/bin/pytest api/tests/test_integration.py -v
 
 | File | Purpose |
 |------|---------|
-| `main.py` | FastAPI app: lifespan BQ client, route handlers |
+| `main.py` | FastAPI app: lifespan BQ client, route handlers, serves UI at `/` |
+| `ui/index.html` | Terminal-style web UI for document screening |
 | `queries.py` | `screen_names()` and `get_entry()` — parameterised BQ queries |
 | `models.py` | Pydantic response models (`HealthResponse`, `ScreenResponse`, `ScreenResult`, document screen models) |
 | `vertex.py` | Vertex AI Gemini entity extraction (`extract_entities()`) |
