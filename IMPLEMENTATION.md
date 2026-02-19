@@ -188,8 +188,23 @@ All query parameters (`@name`, `@threshold`, `@limit`) are passed as BigQuery
 
 **Infrastructure:**
 - Deployed as Cloud Run v2 service `ofac-screening-api` (public, `INGRESS_TRAFFIC_ALL`)
-- Service account `ofac-api` with `bigquery.dataViewer` + `bigquery.jobUser` only
-- `BQ_TABLE` and `BQ_PROJECT` injected as environment variables at deploy time
+- Service account `ofac-api` with `bigquery.dataViewer` + `bigquery.jobUser` + `aiplatform.user`
+- `BQ_TABLE`, `BQ_PROJECT`, `VERTEX_REGION`, `VERTEX_MODEL` injected as env vars at deploy time
+
+### 4b. Document Screening (`POST /screen/document`)
+
+Accepts a free-text document, extracts named entities using Vertex AI Gemini, and screens each entity against the SDN table.
+
+**Entity extraction (`api/vertex.py`):**
+- Uses `google-cloud-aiplatform` SDK with `response_mime_type="application/json"` and a JSON Schema response schema to guarantee structured output
+- Model: `gemini-2.0-flash-001` via `VERTEX_MODEL` env var (default: `gemini-2.0-flash-001`)
+- Region: `us-central1` via `VERTEX_REGION` env var (`gemini-2.0-flash-001` not yet available in `asia-southeast1`)
+- Entity types extracted: `person`, `organization`, `vessel`, `aircraft`
+
+**Request flow:**
+1. `extract_entities(text)` → list of `{name, entity_type}` dicts
+2. Each entity screened via `screen_names()` (same BQ function as `/screen`)
+3. Response includes per-entity hit list, overall `document_clear` flag, and counts
 
 ### 5. Terraform IaC (`terraform/`)
 
@@ -200,7 +215,7 @@ All query parameters (`@name`, `@threshold`, `@limit`) are passed as BigQuery
 | `outputs.tf` | Outputs (bucket names, function URL, BQ table, API URL) |
 | `apis.tf` | `google_project_service` — enables 15 GCP APIs |
 | `iam.tf` | Service accounts + IAM for ingestion pipeline |
-| `api_iam.tf` | `ofac-api` SA + `bigquery.dataViewer` + `bigquery.jobUser` |
+| `api_iam.tf` | `ofac-api` SA + `bigquery.dataViewer` + `bigquery.jobUser` + `aiplatform.user` |
 | `storage.tf` | 2 GCS buckets + Cloud Function source ZIP upload |
 | `bigquery.tf` | BigQuery dataset + table with full schema |
 | `artifact.tf` | Artifact Registry Docker repository |
@@ -215,7 +230,7 @@ All query parameters (`@name`, `@threshold`, `@limit`) are passed as BigQuery
 | `ofac-downloader` | Cloud Function identity | storage.objectAdmin, dataflow.developer, iam.serviceAccountUser (for dataflow SA) |
 | `ofac-dataflow` | Dataflow worker identity | dataflow.worker, storage.objectAdmin, bigquery.dataEditor, bigquery.jobUser, logging.logWriter |
 | `ofac-scheduler` | Cloud Scheduler invoker | cloudfunctions.invoker, run.invoker |
-| `ofac-api` | Cloud Run (screening API) | bigquery.dataViewer, bigquery.jobUser |
+| `ofac-api` | Cloud Run (screening API) | bigquery.dataViewer, bigquery.jobUser, aiplatform.user |
 
 ---
 
@@ -350,7 +365,8 @@ bq query --use_legacy_sql=false \
 cd api && .venv/bin/pytest tests/test_unit.py -v
 ```
 
-7 cases: health, screen happy path, zero threshold, missing-name 422, limit,
+12 cases: health; screen happy path, zero threshold, missing-name 422, limit;
+document screen no-hit, SDN hit, multi-entity, no entities, empty-text 422;
 entry found, entry 404.
 
 ### API integration tests (live Cloud Run)
@@ -360,8 +376,9 @@ export CLOUD_RUN_URL=$(cd terraform && terraform output -raw api_url)
 cd api && .venv/bin/pytest tests/test_integration.py -v
 ```
 
-5 cases: health, exact SDN name hit (SDGT program), fuzzy Saddam Hussein,
-entry by FixedRef ID, entry 0 → 404.
+8 cases: health; exact SDN name hit (SDGT program), fuzzy Saddam Hussein,
+missing-name 422; document with "USAMA BIN LADIN" → match, document with
+fictional names → valid structure; entry by FixedRef ID, entry 0 → 404.
 
 ### BigQuery validation queries
 

@@ -26,6 +26,9 @@ GCS (ofac-raw-*)    Dataflow Flex Template
                         │ SQL queries (EDIT_DISTANCE, SOUNDEX)
                         ▼
                     Cloud Run — ofac-screening-api  ← HTTP API
+                        │ POST /screen/document
+                        ▼
+                    Vertex AI — Gemini (entity extraction)
 ```
 
 Full architecture and data model: see **[IMPLEMENTATION.md](IMPLEMENTATION.md)**
@@ -40,8 +43,13 @@ The screening API is publicly available:
 # Health check
 curl "$CLOUD_RUN_URL/health"
 
-# Fuzzy screen a name (edit distance + SOUNDEX, ranked by confidence)
+# Fuzzy screen a single name (edit distance + SOUNDEX, ranked by confidence)
 curl "$CLOUD_RUN_URL/screen?name=Osama+Bin+Laden"
+
+# Screen a free-text document — extracts entities via Gemini, screens each against SDN
+curl -X POST "$CLOUD_RUN_URL/screen/document" \
+  -H "Content-Type: application/json" \
+  -d '{"text": "Wire from USAMA BIN LADIN received."}'
 
 # Exact entity lookup by OFAC FixedRef ID
 curl "$CLOUD_RUN_URL/entry/7771"
@@ -63,7 +71,8 @@ rig/
 │   ├── README.md           ← API endpoint documentation
 │   ├── main.py             ← FastAPI app
 │   ├── queries.py          ← BigQuery fuzzy-screening queries
-│   ├── models.py           ← Pydantic response models
+│   ├── models.py           ← Pydantic request/response models
+│   ├── vertex.py           ← Vertex AI Gemini entity extraction
 │   ├── requirements.txt    ← Python dependencies
 │   ├── Dockerfile          ← Container definition
 │   ├── deploy.sh           ← Build image → terraform → test

@@ -183,10 +183,16 @@ Or step by step:
 gcloud builds submit . \
   --tag=asia-southeast1-docker.pkg.dev/remote-machine-b7af52b6/ofac-pipeline/ofac-api:latest
 
-# 2. Deploy infrastructure (SA, IAM, Cloud Run service)
+# 2. Deploy infrastructure (SA, IAM, Cloud Run service, env vars)
 cd ../terraform && terraform apply -auto-approve
 
-# 3. Run integration tests against live URL
+# 3. Force Cloud Run to pick up the new image digest
+#    (terraform uses :latest and won't redeploy on digest-only changes)
+gcloud run services update ofac-screening-api \
+  --region=asia-southeast1 \
+  --image=asia-southeast1-docker.pkg.dev/remote-machine-b7af52b6/ofac-pipeline/ofac-api:latest
+
+# 4. Run integration tests against live URL
 export CLOUD_RUN_URL=$(terraform output -raw api_url)
 cd .. && .venv/bin/pytest api/tests/test_integration.py -v
 ```

@@ -43,11 +43,20 @@ terraform apply \
   -var="project_id=${PROJECT_ID}" \
   -var="region=${REGION}"
 
+# ── Step 2b: Force Cloud Run redeploy ─────────────────────────────────────────
+# terraform uses :latest tag and won't redeploy when only the image digest changes
+echo ""
+echo "▶ Step 2b: Force Cloud Run to pick up new image digest"
+gcloud run services update ofac-screening-api \
+  --region="${REGION}" \
+  --image="${API_IMAGE}" \
+  --project="${PROJECT_ID}"
+
 # ── Step 3: Unit tests ────────────────────────────────────────────────────────
 echo ""
-echo "▶ Step 3: Unit tests (mocked BQ)"
+echo "▶ Step 3: Unit tests (mocked BQ + Vertex)"
 cd "${REPO_ROOT}"
-python -m pytest api/tests/test_unit.py -v
+api/.venv/bin/pytest api/tests/test_unit.py -v
 
 # ── Step 4: Integration tests ─────────────────────────────────────────────────
 echo ""
@@ -58,7 +67,7 @@ CLOUD_RUN_URL=$(terraform output -raw api_url)
 echo "  API URL: ${CLOUD_RUN_URL}"
 
 cd "${REPO_ROOT}"
-python -m pytest api/tests/test_integration.py -v
+api/.venv/bin/pytest api/tests/test_integration.py -v
 
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"

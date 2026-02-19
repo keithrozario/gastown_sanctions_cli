@@ -3,6 +3,9 @@ __pycache__/
 *.pyo
 .venv/
 api/.venv/
+.pytest_cache/
+.beads/
+cloud_function_source.zip
 terraform/.terraform/
 terraform/terraform.tfstate
 terraform/terraform.tfstate.backup
