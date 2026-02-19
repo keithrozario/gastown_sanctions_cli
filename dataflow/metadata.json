@@ -1,0 +1,21 @@
+{
+  "name": "OFAC SDN Ingestion Pipeline",
+  "description": "Parses the OFAC SDN Advanced XML from GCS and loads it into BigQuery. Supports weekly full-refresh ingestion with complete data capture including nested entities, aliases, addresses, ID documents, and vessel/aircraft info.",
+  "parameters": [
+    {
+      "name": "gcs_path",
+      "label": "GCS path of the OFAC SDN XML file",
+      "helpText": "Full GCS URI of the downloaded SDN_ADVANCED.XML file. Example: gs://ofac-raw-myproject/raw/SDN_ADVANCED_20260218.XML",
+      "isOptional": false,
+      "paramType": "GCS_READ_FILE"
+    },
+    {
+      "name": "bq_table",
+      "label": "BigQuery destination table",
+      "helpText": "Fully-qualified BigQuery table in project:dataset.table format. Example: myproject:ofac_sanctions.sdn_list",
+      "isOptional": false,
+      "paramType": "TEXT",
+      "regexes": ["^[a-zA-Z0-9_-]+:[a-zA-Z0-9_]+\\.[a-zA-Z0-9_]+$"]
+    }
+  ]
+}
