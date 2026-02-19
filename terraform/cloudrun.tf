@@ -24,7 +24,7 @@ resource "google_cloud_run_v2_service" "ofac_api" {
       }
       env {
         name  = "VERTEX_REGION"
-        value = var.region
+        value = "us-central1"
       }
       env {
         name  = "VERTEX_MODEL"
