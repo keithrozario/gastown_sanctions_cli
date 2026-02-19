@@ -52,3 +52,13 @@ output "api_url" {
   description = "OFAC Screening API Cloud Run URL"
   value       = google_cloud_run_v2_service.ofac_api.uri
 }
+
+output "lb_ip" {
+  description = "Regional external IP address of the load balancer"
+  value       = google_compute_address.lb_ip.address
+}
+
+output "custom_domain_url" {
+  description = "Custom domain URL for the OFAC Screening API"
+  value       = "https://${var.subdomain}.${var.base_domain}"
+}

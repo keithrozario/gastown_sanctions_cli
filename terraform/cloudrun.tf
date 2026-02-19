@@ -4,7 +4,7 @@ resource "google_cloud_run_v2_service" "ofac_api" {
   name     = "ofac-screening-api"
   location = var.region
   project  = var.project_id
-  ingress  = "INGRESS_TRAFFIC_ALL"
+  ingress  = "INGRESS_TRAFFIC_INTERNAL_LOAD_BALANCER"
 
   template {
     service_account = google_service_account.api.email
@@ -39,9 +39,13 @@ resource "google_cloud_run_v2_service" "ofac_api" {
   ]
 }
 
-# Note: allUsers invoker is blocked by org policy.
-# Grant invoker role to specific identities as needed:
-#   gcloud run services add-iam-policy-binding ofac-screening-api \
-#     --region=asia-southeast1 \
-#     --member="user:YOU@domain.com" \
-#     --role=roles/run.invoker
+# Allow unauthenticated access via the load balancer.
+# Cloud Run ingress is restricted to INGRESS_TRAFFIC_INTERNAL_LOAD_BALANCER,
+# so direct internet access to the Cloud Run URL is blocked.
+resource "google_cloud_run_v2_service_iam_member" "public_invoker" {
+  project  = var.project_id
+  location = var.region
+  name     = google_cloud_run_v2_service.ofac_api.name
+  role     = "roles/run.invoker"
+  member   = "allUsers"
+}

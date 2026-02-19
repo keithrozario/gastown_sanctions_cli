@@ -3,7 +3,7 @@ terraform {
   required_providers {
     google = {
       source  = "hashicorp/google"
-      version = "~> 5.0"
+      version = ">= 5.45, < 7.0"
     }
     archive = {
       source  = "hashicorp/archive"
@@ -14,5 +14,12 @@ terraform {
 
 provider "google" {
   project = var.project_id
+  region  = var.region
+}
+
+# Alias for the separate Cloud DNS project (dns-krozario)
+provider "google" {
+  alias   = "dns"
+  project = var.dns_project_id
   region  = var.region
 }

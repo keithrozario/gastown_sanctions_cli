@@ -76,3 +76,29 @@ variable "dataflow_subnetwork" {
   type        = string
   default     = "regions/asia-southeast1/subnetworks/asia-southeast1-remote-machine"
 }
+
+# ─── Load Balancer / TLS / DNS ───────────────────────────────────────────────
+
+variable "dns_project_id" {
+  description = "GCP project that owns the Cloud DNS zone"
+  type        = string
+  default     = "dns-krozario"
+}
+
+variable "dns_zone_name" {
+  description = "Cloud DNS managed zone name in dns_project_id"
+  type        = string
+  default     = "krozario-demo-argolis"
+}
+
+variable "base_domain" {
+  description = "Base domain managed by the Cloud DNS zone"
+  type        = string
+  default     = "krozario.demo.altostrat.com"
+}
+
+variable "subdomain" {
+  description = "Subdomain to create under base_domain for this service"
+  type        = string
+  default     = "sanctions"
+}
