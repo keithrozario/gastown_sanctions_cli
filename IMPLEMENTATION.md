@@ -153,28 +153,69 @@ For each `DistinctParty`:
 - Parse `Identity` → primary name + aliases (with name part type resolution via `NamePartGroups`)
 - Parse `Feature` elements → dates of birth, places of birth, nationalities, citizenships, addresses (via `LocationID` resolution), ID documents (via `IDRegDocumentReference`), vessel/aircraft features, gender, title
 
-### 3. Terraform IaC (`terraform/`)
+### 3. Screening API (`api/`)
+
+**Files:**
+- `main.py` — FastAPI application with lifespan-managed BigQuery client
+- `queries.py` — `screen_names()` and `get_entry()` functions; parameterised SQL
+- `models.py` — Pydantic response models
+- `Dockerfile` — `python:3.11-slim`; uvicorn on port 8080
+- `deploy.sh` — Cloud Build → terraform apply → unit + integration tests
+- `tests/test_unit.py` — 7 offline tests (mocked BQ client via `unittest.mock`)
+- `tests/test_integration.py` — 5 live tests (reads `CLOUD_RUN_URL` from env)
+
+**Endpoints:**
+- `GET /health` — service liveness + table reference
+- `GET /screen?name=&threshold=&limit=` — fuzzy name screening (tiered scoring)
+- `GET /entry/{sdn_entry_id}` — full BQ row by OFAC FixedRef ID
+
+**Screening query design:**
+
+The query unnests each SDN entry into one row per name (primary + aliases), then scores
+against the query name simultaneously across three mechanisms:
+
+```sql
+CASE
+  WHEN LOWER(all_name) = LOWER(@name)                    THEN 1  -- exact
+  WHEN EDIT_DISTANCE(...) <= 2                            THEN 2  -- tight fuzzy
+  WHEN EDIT_DISTANCE(...) <= @threshold                   THEN 3  -- loose fuzzy
+  WHEN SOUNDEX(all_name) = SOUNDEX(@name)                THEN 4  -- phonetic
+END AS match_score
+```
+
+All query parameters (`@name`, `@threshold`, `@limit`) are passed as BigQuery
+`ScalarQueryParameter` objects — never interpolated into SQL — preventing injection.
+
+**Infrastructure:**
+- Deployed as Cloud Run v2 service `ofac-screening-api` (public, `INGRESS_TRAFFIC_ALL`)
+- Service account `ofac-api` with `bigquery.dataViewer` + `bigquery.jobUser` only
+- `BQ_TABLE` and `BQ_PROJECT` injected as environment variables at deploy time
+
+### 5. Terraform IaC (`terraform/`)
 
 | File | Resources |
 |------|-----------|
 | `main.tf` | Terraform + provider configuration |
 | `variables.tf` | Input variables (project, region, bucket names, etc.) |
-| `outputs.tf` | Outputs (bucket names, function URL, BQ table, etc.) |
+| `outputs.tf` | Outputs (bucket names, function URL, BQ table, API URL) |
 | `apis.tf` | `google_project_service` — enables 15 GCP APIs |
-| `iam.tf` | 3 service accounts + all IAM bindings |
+| `iam.tf` | Service accounts + IAM for ingestion pipeline |
+| `api_iam.tf` | `ofac-api` SA + `bigquery.dataViewer` + `bigquery.jobUser` |
 | `storage.tf` | 2 GCS buckets + Cloud Function source ZIP upload |
 | `bigquery.tf` | BigQuery dataset + table with full schema |
 | `artifact.tf` | Artifact Registry Docker repository |
 | `cloudfunction.tf` | Cloud Functions Gen2 deployment |
+| `cloudrun.tf` | Cloud Run v2 service (screening API) + public invoker |
 | `scheduler.tf` | Cloud Scheduler job (weekly cron) |
 
-### 4. Service Accounts
+### 6. Service Accounts
 
 | SA | Purpose | Permissions |
 |----|---------|-------------|
 | `ofac-downloader` | Cloud Function identity | storage.objectAdmin, dataflow.developer, iam.serviceAccountUser (for dataflow SA) |
 | `ofac-dataflow` | Dataflow worker identity | dataflow.worker, storage.objectAdmin, bigquery.dataEditor, bigquery.jobUser, logging.logWriter |
 | `ofac-scheduler` | Cloud Scheduler invoker | cloudfunctions.invoker, run.invoker |
+| `ofac-api` | Cloud Run (screening API) | bigquery.dataViewer, bigquery.jobUser |
 
 ---
 
@@ -257,15 +298,23 @@ cd /path/to/sanctions_screener/mayor/rig
 USE_CLOUD_BUILD=true ./deploy.sh
 ```
 
-### Deploy sequence (what the script does)
+### Deploy sequence — ingestion pipeline (`deploy.sh`)
 
 1. `terraform apply -target=google_project_service.apis` — Enable APIs
 2. Wait 60 seconds for API propagation
 3. `terraform apply -target=google_artifact_registry_repository.ofac` — Create registry
-4. Build & push Docker image to Artifact Registry
+4. Build & push Dataflow Docker image to Artifact Registry
 5. `gcloud dataflow flex-template build` — Upload Flex Template spec to GCS
 6. `terraform apply` — Deploy Cloud Function, Scheduler, BigQuery, buckets, IAM
 7. `bq query "CREATE SEARCH INDEX ..."` — Create BigQuery search index
+
+### Deploy sequence — screening API (`api/deploy.sh`)
+
+1. `gcloud builds submit` — Build & push `ofac-api:latest` to Artifact Registry
+2. `terraform apply` — Create `ofac-api` SA, IAM bindings, Cloud Run service
+3. `pytest tests/test_unit.py` — Run offline unit tests (mocked BQ)
+4. `terraform output -raw api_url` → `CLOUD_RUN_URL`
+5. `pytest tests/test_integration.py` — Run live integration tests
 
 ### Trigger a manual run
 
@@ -295,29 +344,48 @@ bq query --use_legacy_sql=false \
 
 ## Testing
 
-### Run test queries
+### API unit tests (offline, no GCP)
+
+```bash
+cd api && .venv/bin/pytest tests/test_unit.py -v
+```
+
+7 cases: health, screen happy path, zero threshold, missing-name 422, limit,
+entry found, entry 404.
+
+### API integration tests (live Cloud Run)
+
+```bash
+export CLOUD_RUN_URL=$(cd terraform && terraform output -raw api_url)
+cd api && .venv/bin/pytest tests/test_integration.py -v
+```
+
+5 cases: health, exact SDN name hit (SDGT program), fuzzy Saddam Hussein,
+entry by FixedRef ID, entry 0 → 404.
+
+### BigQuery validation queries
 
 ```bash
 bq query --use_legacy_sql=false < queries/test_queries.sql
 ```
 
-### Expected results
+### Expected data results
 
 | Test | Expected |
 |------|----------|
-| Total row count | ~12,000–14,000 |
-| Records with primary name | ~12,000–14,000 |
-| Records with programs | ~12,000–14,000 |
+| Total row count | ~12,000–18,000 |
+| Records with primary name | ~12,000–18,000 |
+| Records with programs | ~12,000–18,000 |
 | Vessel records | ~300–500 |
-| Records with aliases | ~8,000–10,000 |
+| Records with aliases | ~8,000–12,000 |
 | Records with ID documents | ~5,000–8,000 |
 
 ### Fuzzy search validation examples
 
 | Query | Expected top hit |
 |-------|-----------------|
-| `Sadam Husain` (edit dist ≤ 3) | `SADDAM HUSSEIN` |
-| `Osama Bin Ladin` (edit dist ≤ 3) | `USAMA BIN LADIN` |
+| `Sadam Husain` (edit dist ≤ 4) | `SADDAM HUSSEIN` |
+| `Osama Bin Laden` (edit dist ≤ 4) | `USAMA BIN LADIN` |
 | `Kadafi` (SOUNDEX) | `MUAMMAR QADHAFI` / similar |
 | `hussein` (SEARCH) | Multiple entries with "HUSSEIN" |
 
@@ -341,9 +409,10 @@ Cron: `0 17 * * 0` (UTC)
 | Cloud Function Gen2 | ~$0.01/month (4 invocations × 9 min × 512MB) |
 | Dataflow | ~$2–5/run × 4 runs = ~$8–20/month |
 | BigQuery storage | ~$0.02/month (~50MB table) |
-| BigQuery queries | Pay-per-query (100MB per search) |
+| BigQuery queries | Pay-per-query (100MB per screen call) |
 | GCS | ~$0.01/month (XML files, 90-day retention) |
 | Artifact Registry | ~$0.05/month (image storage) |
+| Cloud Run (screening API) | ~$0/month at low traffic (scales to zero) |
 | **Total** | **~$10–25/month** |
 
 ---
@@ -352,28 +421,47 @@ Cron: `0 17 * * 0` (UTC)
 
 ```
 sanctions_screener/mayor/rig/
-├── IMPLEMENTATION.md       ← This file
-├── deploy.sh               ← Deployment automation script
+├── README.md               ← Quick-start and repo overview
+├── IMPLEMENTATION.md       ← This file — full architecture + design
+├── deploy.sh               ← Deploy ingestion pipeline
+│
+├── api/                    ← Cloud Run screening API
+│   ├── README.md           ← Endpoint documentation
+│   ├── main.py             ← FastAPI app (lifespan BQ client, routes)
+│   ├── queries.py          ← screen_names() + get_entry() BQ functions
+│   ├── models.py           ← Pydantic response models
+│   ├── requirements.txt    ← Python dependencies
+│   ├── Dockerfile          ← python:3.11-slim, uvicorn :8080
+│   ├── deploy.sh           ← Build → terraform → unit + integration tests
+│   └── tests/
+│       ├── test_unit.py        ← 7 offline tests (mocked BQ)
+│       └── test_integration.py ← 5 live tests (CLOUD_RUN_URL env var)
+│
 ├── terraform/
 │   ├── main.tf             ← Provider configuration
 │   ├── variables.tf        ← Input variables
-│   ├── outputs.tf          ← Output values
+│   ├── outputs.tf          ← Outputs (bucket names, function URL, api_url)
 │   ├── apis.tf             ← GCP API enablement
-│   ├── iam.tf              ← Service accounts and IAM bindings
+│   ├── iam.tf              ← Service accounts and IAM (ingestion pipeline)
+│   ├── api_iam.tf          ← ofac-api SA + BQ IAM (screening API)
 │   ├── storage.tf          ← GCS buckets + CF source upload
 │   ├── bigquery.tf         ← BQ dataset, table, schema
 │   ├── artifact.tf         ← Artifact Registry repository
 │   ├── cloudfunction.tf    ← Cloud Functions Gen2 deployment
+│   ├── cloudrun.tf         ← Cloud Run v2 screening API service
 │   └── scheduler.tf        ← Cloud Scheduler weekly job
+│
 ├── dataflow/
 │   ├── pipeline.py         ← Apache Beam pipeline entry point
 │   ├── xml_parser.py       ← OFAC Advanced XML parsing logic
 │   ├── Dockerfile          ← Flex Template container image
 │   ├── requirements.txt    ← Python dependencies
 │   └── metadata.json       ← Flex Template parameter definitions
+│
 ├── cloud_function/
 │   ├── main.py             ← Downloader + Dataflow launcher
 │   └── requirements.txt    ← Python dependencies
+│
 └── queries/
     └── test_queries.sql    ← Validation and fuzzy search queries
 ```
@@ -389,3 +477,6 @@ sanctions_screener/mayor/rig/
 - [BigQuery Search Indexes](https://cloud.google.com/bigquery/docs/search-index)
 - [Dataflow Flex Templates](https://cloud.google.com/dataflow/docs/guides/templates/using-flex-templates)
 - [Cloud Functions Gen2](https://cloud.google.com/functions/docs/concepts/version-comparison)
+- [Cloud Run v2 Terraform](https://registry.terraform.io/providers/hashicorp/google/latest/docs/resources/cloud_run_v2_service)
+- [FastAPI](https://fastapi.tiangolo.com/)
+- [google-cloud-bigquery Python client](https://cloud.google.com/python/docs/reference/bigquery/latest)

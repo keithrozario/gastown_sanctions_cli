@@ -31,10 +31,9 @@ resource "google_cloud_run_v2_service" "ofac_api" {
   ]
 }
 
-resource "google_cloud_run_v2_service_iam_member" "public_invoker" {
-  project  = var.project_id
-  location = var.region
-  name     = google_cloud_run_v2_service.ofac_api.name
-  role     = "roles/run.invoker"
-  member   = "allUsers"
-}
+# Note: allUsers invoker is blocked by org policy.
+# Grant invoker role to specific identities as needed:
+#   gcloud run services add-iam-policy-binding ofac-screening-api \
+#     --region=asia-southeast1 \
+#     --member="user:YOU@domain.com" \
+#     --role=roles/run.invoker
