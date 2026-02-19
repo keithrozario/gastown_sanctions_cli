@@ -57,6 +57,15 @@ def get(path: str, **params) -> requests.Response:
     )
 
 
+def post(path: str, payload: dict) -> requests.Response:
+    return requests.post(
+        f"{BASE_URL}{path}",
+        json=payload,
+        headers=_HEADERS,
+        timeout=60,
+    )
+
+
 class TestHealthIntegration:
     def test_health(self):
         resp = get("/health")
@@ -95,6 +104,25 @@ class TestScreenIntegration:
     def test_missing_name_422(self):
         resp = get("/screen")
         assert resp.status_code == 422
+
+
+class TestDocumentScreenIntegration:
+    def test_sdn_name_in_document(self):
+        resp = post("/screen/document", {"text": "Wire transfer authorized by USAMA BIN LADIN."})
+        assert resp.status_code == 200, resp.text
+        data = resp.json()
+        assert data["document_clear"] is False
+        assert data["total_matches"] >= 1
+
+    def test_fictional_names_response_structure(self):
+        resp = post("/screen/document", {"text": "Payment from Zorblax Vonderhoff to Quibble McFarnsworth."})
+        assert resp.status_code == 200, resp.text
+        data = resp.json()
+        assert "entities_extracted" in data
+        assert "screening_results" in data
+        assert "document_clear" in data
+        assert "total_entities_extracted" in data
+        assert "total_matches" in data
 
 
 class TestEntryIntegration:

@@ -22,6 +22,14 @@ resource "google_cloud_run_v2_service" "ofac_api" {
         name  = "BQ_PROJECT"
         value = var.project_id
       }
+      env {
+        name  = "VERTEX_REGION"
+        value = var.region
+      }
+      env {
+        name  = "VERTEX_MODEL"
+        value = "gemini-2.0-flash-001"
+      }
     }
   }
 

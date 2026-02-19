@@ -122,6 +122,70 @@ class TestScreen:
         assert resp.json()["total_hits"] == 5
 
 
+class TestDocumentScreen:
+    def test_happy_path_no_hits(self, client):
+        with (
+            patch("main.extract_entities", return_value=[{"name": "Alice", "entity_type": "person"}]),
+            patch("main.screen_names", return_value=[]),
+        ):
+            resp = client.post("/screen/document", json={"text": "Payment from Alice."})
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["document_clear"] is True
+        assert data["total_matches"] == 0
+        assert data["total_entities_extracted"] == 1
+        assert data["screening_results"][0]["is_match"] is False
+
+    def test_sdn_hit(self, client):
+        mock_row = _make_mock_row()
+        with (
+            patch("main.extract_entities", return_value=[{"name": "USAMA BIN LADIN", "entity_type": "person"}]),
+            patch("main.screen_names", return_value=[mock_row]),
+        ):
+            resp = client.post("/screen/document", json={"text": "Wire from USAMA BIN LADIN received."})
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["document_clear"] is False
+        assert data["total_matches"] == 1
+        assert data["screening_results"][0]["is_match"] is True
+
+    def test_multiple_entities_one_match(self, client):
+        mock_row = _make_mock_row()
+        entities = [
+            {"name": "USAMA BIN LADIN", "entity_type": "person"},
+            {"name": "Acme Corp", "entity_type": "organization"},
+        ]
+
+        def _fake_screen(client, name, threshold, limit):
+            return [mock_row] if name == "USAMA BIN LADIN" else []
+
+        with (
+            patch("main.extract_entities", return_value=entities),
+            patch("main.screen_names", side_effect=_fake_screen),
+        ):
+            resp = client.post("/screen/document", json={"text": "Transaction involving USAMA BIN LADIN and Acme Corp."})
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["total_entities_extracted"] == 2
+        assert data["total_matches"] == 1
+        assert len(data["screening_results"]) == 2
+
+    def test_no_entities_extracted(self, client):
+        with (
+            patch("main.extract_entities", return_value=[]),
+            patch("main.screen_names", return_value=[]),
+        ):
+            resp = client.post("/screen/document", json={"text": "No named entities here."})
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["total_entities_extracted"] == 0
+        assert data["document_clear"] is True
+
+    def test_empty_text_returns_422(self, client):
+        resp = client.post("/screen/document", json={"text": ""})
+        assert resp.status_code == 422
+
+
 class TestEntry:
     def test_entry_found(self, client):
         full_row = _make_full_entry_row()

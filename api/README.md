@@ -77,6 +77,47 @@ curl "$CLOUD_RUN_URL/screen?name=Osama+Bin+Laden&threshold=4&limit=10"
 
 ---
 
+### `POST /screen/document`
+
+Extracts named entities from a plain-text document using Vertex AI (Gemini),
+then screens each entity against the OFAC SDN table.
+
+**Request body (JSON):**
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `text` | string | yes | — | Plain-text document to screen |
+| `threshold` | integer 0–10 | no | `4` | Max edit distance per entity screen |
+| `limit_per_entity` | integer 1–20 | no | `5` | Max SDN hits returned per entity |
+
+**Example:**
+
+```bash
+curl -X POST "$CLOUD_RUN_URL/screen/document" \
+  -H "Content-Type: application/json" \
+  -d '{"text": "Wire from USAMA BIN LADIN received."}'
+```
+
+```json
+{
+  "entities_extracted": [{"name": "USAMA BIN LADIN", "entity_type": "person"}],
+  "screening_results": [{
+    "entity": "USAMA BIN LADIN",
+    "entity_type": "person",
+    "is_match": true,
+    "hits": [{"sdn_entry_id": 7771, "match_score": 1, ...}]
+  }],
+  "document_clear": false,
+  "total_entities_extracted": 1,
+  "total_matches": 1
+}
+```
+
+**Error responses:**
+- `422 Unprocessable Entity` — `text` field missing or empty
+
+---
+
 ### `GET /entry/{sdn_entry_id}`
 
 Returns the full BigQuery row for a single entity by OFAC FixedRef ID.
@@ -158,9 +199,10 @@ cd .. && .venv/bin/pytest api/tests/test_integration.py -v
 |------|---------|
 | `main.py` | FastAPI app: lifespan BQ client, route handlers |
 | `queries.py` | `screen_names()` and `get_entry()` — parameterised BQ queries |
-| `models.py` | Pydantic response models (`HealthResponse`, `ScreenResponse`, `ScreenResult`) |
+| `models.py` | Pydantic response models (`HealthResponse`, `ScreenResponse`, `ScreenResult`, document screen models) |
+| `vertex.py` | Vertex AI Gemini entity extraction (`extract_entities()`) |
 | `requirements.txt` | Python dependencies |
 | `Dockerfile` | `python:3.11-slim` → uvicorn on port 8080 |
 | `deploy.sh` | Full deploy + test automation |
-| `tests/test_unit.py` | 7 offline tests with mocked BQ client |
-| `tests/test_integration.py` | 5 live tests against deployed URL |
+| `tests/test_unit.py` | 12 offline tests with mocked BQ/Vertex clients |
+| `tests/test_integration.py` | 7 live tests against deployed URL |

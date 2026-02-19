@@ -5,8 +5,17 @@ from typing import Annotated
 from fastapi import FastAPI, HTTPException, Query
 from google.cloud import bigquery
 
-from models import HealthResponse, ScreenResponse, ScreenResult
+from models import (
+    DocumentScreenRequest,
+    DocumentScreenResponse,
+    EntityScreenResult,
+    ExtractedEntity,
+    HealthResponse,
+    ScreenResponse,
+    ScreenResult,
+)
 from queries import BQ_TABLE, get_entry, screen_names
+from vertex import extract_entities
 
 _bq_client: bigquery.Client | None = None
 
@@ -61,6 +70,53 @@ def screen(
         threshold=threshold,
         total_hits=len(results),
         results=results,
+    )
+
+
+@app.post("/screen/document", response_model=DocumentScreenResponse)
+def screen_document(request: DocumentScreenRequest):
+    entities = extract_entities(request.text)
+    screening_results = []
+    for ent in entities:
+        rows = screen_names(
+            _client(),
+            name=ent["name"],
+            threshold=request.threshold,
+            limit=request.limit_per_entity,
+        )
+        hits = [
+            ScreenResult(
+                sdn_entry_id=r["sdn_entry_id"],
+                sdn_type=r.get("sdn_type"),
+                primary_name=r.get("primary_name"),
+                matched_name=r.get("all_name"),
+                match_score=r["match_score"],
+                edit_distance=r.get("edit_distance"),
+                programs=r.get("programs") or [],
+                legal_authorities=r.get("legal_authorities") or [],
+                dates_of_birth=r.get("dates_of_birth") or [],
+                nationalities=r.get("nationalities") or [],
+            )
+            for r in rows
+        ]
+        screening_results.append(
+            EntityScreenResult(
+                entity=ent["name"],
+                entity_type=ent["entity_type"],
+                is_match=len(hits) > 0,
+                hits=hits,
+            )
+        )
+    total_matches = sum(1 for r in screening_results if r.is_match)
+    return DocumentScreenResponse(
+        entities_extracted=[
+            ExtractedEntity(name=e["name"], entity_type=e["entity_type"])
+            for e in entities
+        ],
+        screening_results=screening_results,
+        document_clear=total_matches == 0,
+        total_entities_extracted=len(entities),
+        total_matches=total_matches,
     )
 
 

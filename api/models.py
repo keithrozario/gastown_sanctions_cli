@@ -1,5 +1,5 @@
 from typing import Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class HealthResponse(BaseModel):
@@ -25,3 +25,29 @@ class ScreenResponse(BaseModel):
     threshold: int
     total_hits: int
     results: list[ScreenResult]
+
+
+class DocumentScreenRequest(BaseModel):
+    text: str = Field(..., min_length=1)
+    threshold: int = Field(default=4, ge=0, le=10)
+    limit_per_entity: int = Field(default=5, ge=1, le=20)
+
+
+class ExtractedEntity(BaseModel):
+    name: str
+    entity_type: str  # person | organization | vessel | aircraft
+
+
+class EntityScreenResult(BaseModel):
+    entity: str
+    entity_type: str
+    is_match: bool
+    hits: list[ScreenResult]
+
+
+class DocumentScreenResponse(BaseModel):
+    entities_extracted: list[ExtractedEntity]
+    screening_results: list[EntityScreenResult]
+    document_clear: bool
+    total_entities_extracted: int
+    total_matches: int
