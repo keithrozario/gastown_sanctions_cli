@@ -47,3 +47,8 @@ output "dataflow_template_path" {
   description = "GCS path for the Dataflow Flex Template spec"
   value       = "gs://${google_storage_bucket.dataflow.name}/templates/ofac-pipeline.json"
 }
+
+output "api_url" {
+  description = "OFAC Screening API Cloud Run URL"
+  value       = google_cloud_run_v2_service.ofac_api.uri
+}
