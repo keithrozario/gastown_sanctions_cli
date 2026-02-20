@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Sanction Screener // OFAC SDN</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <style>
     /* ── Reset ─────────────────────────────────────────────── */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -460,11 +461,11 @@
            ondragleave="onDragLeave(event)"
            ondrop="onDrop(event)">
         <input type="file" id="file-input"
-               accept=".txt,.md,.csv,.log,.json,.xml,.html,.py,.js,.ts,.java,.c,.cpp"
+               accept=".txt,.md,.csv,.log,.json,.xml,.html,.py,.js,.ts,.java,.c,.cpp,.pdf"
                onchange="onFileSelect(event)">
         <div class="dropzone-icon">[ ■ ]</div>
         <div class="dropzone-label">DROP FILE OR CLICK TO BROWSE</div>
-        <div class="dropzone-sub">Plain-text files &nbsp;·&nbsp; .txt .md .csv .log .json .xml and more</div>
+        <div class="dropzone-sub">Plain-text files &nbsp;·&nbsp; .txt .md .csv .log .json .xml .pdf and more</div>
       </div>
       <div class="file-info" id="file-info"></div>
     </div>
@@ -560,17 +561,42 @@ function onFileSelect(e) {
 
 function loadFile(file) {
   selectedFile = file;
-  const reader = new FileReader();
-  reader.onload = (e) => {
-    fileText = e.target.result;
-    const size = (file.size / 1024).toFixed(1);
-    document.getElementById('file-info').textContent =
-      `> Loaded: ${file.name}  (${size} KB · ${fileText.length.toLocaleString()} chars)`;
-  };
-  reader.onerror = () => {
-    document.getElementById('file-info').textContent = '> Error reading file.';
-  };
-  reader.readAsText(file);
+  const size = (file.size / 1024).toFixed(1);
+  const infoEl = document.getElementById('file-info');
+
+  if (file.name.toLowerCase().endsWith('.pdf')) {
+    infoEl.textContent = `> Loading PDF: ${file.name}  (${size} KB) ...`;
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        pdfjsLib.GlobalWorkerOptions.workerSrc =
+          'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        const pdf = await pdfjsLib.getDocument({ data: e.target.result }).promise;
+        let text = '';
+        for (let i = 1; i <= pdf.numPages; i++) {
+          const page = await pdf.getPage(i);
+          const content = await page.getTextContent();
+          text += content.items.map(item => item.str).join(' ') + '\n';
+        }
+        fileText = text;
+        infoEl.textContent =
+          `> Loaded: ${file.name}  (${size} KB · ${pdf.numPages} page${pdf.numPages !== 1 ? 's' : ''} · ${fileText.length.toLocaleString()} chars)`;
+      } catch (err) {
+        infoEl.textContent = `> Error reading PDF: ${err.message}`;
+      }
+    };
+    reader.onerror = () => { infoEl.textContent = '> Error reading file.'; };
+    reader.readAsArrayBuffer(file);
+  } else {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      fileText = e.target.result;
+      infoEl.textContent =
+        `> Loaded: ${file.name}  (${size} KB · ${fileText.length.toLocaleString()} chars)`;
+    };
+    reader.onerror = () => { infoEl.textContent = '> Error reading file.'; };
+    reader.readAsText(file);
+  }
 }
 
 /* ── Output helpers ────────────────────────────────────────── */
