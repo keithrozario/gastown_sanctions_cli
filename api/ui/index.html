@@ -125,7 +125,6 @@
     }
 
     input[type="text"],
-    input[type="password"],
     textarea {
       width: 100%;
       background: #020a02;
@@ -139,7 +138,6 @@
     }
 
     input[type="text"]:focus,
-    input[type="password"]:focus,
     textarea:focus {
       border-color: var(--green-mid);
       box-shadow: var(--glow-sm);
@@ -431,24 +429,6 @@
     <div class="divider">════════════════════════════════════════════════════════════════════════════════════</div>
   </header>
 
-  <!-- ── Configuration ──────────────────────────────────────── -->
-  <section>
-    <div class="section-header">// CONFIGURATION</div>
-    <div class="field">
-      <label>API_ENDPOINT</label>
-      <input type="text" id="api-url"
-             placeholder="https://ofac-screening-api-z5l5fzb65q-as.a.run.app">
-    </div>
-    <div class="field">
-      <label>IDENTITY_TOKEN
-        <span class="hint">  # leave blank if public  |  gcloud auth print-identity-token</span>
-      </label>
-      <input type="password" id="auth-token" placeholder="eyJ...">
-    </div>
-  </section>
-
-  <div class="divider">────────────────────────────────────────────────────────────────────────────────────</div>
-
   <!-- ── Document Input ─────────────────────────────────────── -->
   <section>
     <div class="section-header">// DOCUMENT INPUT</div>
@@ -667,8 +647,7 @@ async function screenDocument() {
     }
   }
 
-  const apiUrl   = (document.getElementById('api-url').value.trim() || window.location.origin).replace(/\/$/, '');
-  const token    = document.getElementById('auth-token').value.trim();
+  const apiUrl   = window.location.origin;
   const threshold      = parseInt(document.getElementById('threshold').value) || 4;
   const limitPerEntity = parseInt(document.getElementById('limit-per-entity').value) || 5;
 
@@ -689,7 +668,6 @@ async function screenDocument() {
 
   // Print startup sequence
   printLine(`> Initializing OFAC SDN screening...`, 'o-cmd');
-  printLine(`> Endpoint  : ${apiUrl}`, 'o-dim');
   printLine(`> Document  : ${docName}  (${text.length.toLocaleString()} chars)`, 'o-dim');
   printLine(`> Threshold : ${threshold}  |  Limit per entity : ${limitPerEntity}`, 'o-dim');
   printBlank();
@@ -699,7 +677,6 @@ async function screenDocument() {
 
   // Build request
   const headers = { 'Content-Type': 'application/json' };
-  if (token) headers['Authorization'] = `Bearer ${token}`;
 
   let data;
   try {
@@ -725,7 +702,6 @@ async function screenDocument() {
     data = await resp.json();
   } catch (err) {
     printLine(`> NETWORK ERROR: ${err.message}`, 'o-match');
-    printLine(`> Check API endpoint and identity token.`, 'o-warn');
     finishScan(btn);
     addCursor();
     return;
