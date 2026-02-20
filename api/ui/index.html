@@ -8,23 +8,39 @@
     /* ── Reset ─────────────────────────────────────────────── */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-    /* ── Base ───────────────────────────────────────────────── */
+    /* ── Palette ────────────────────────────────────────────── */
     :root {
-      --green:      #00ff41;
-      --green-mid:  #00cc33;
-      --green-dim:  #006622;
-      --green-dark: #002208;
-      --red:        #ff3300;
-      --amber:      #ffaa00;
-      --bg:         #050f05;
-      --glow:       0 0 8px rgba(0,255,65,0.6);
-      --glow-sm:    0 0 4px rgba(0,255,65,0.4);
+      --bg:          #0a0e18;
+      --surface:     #111827;
+      --border:      #1f2937;
+      --border-mid:  #374151;
+
+      --text:        #f1f5f9;   /* primary — nearly white, very readable */
+      --text-2:      #94a3b8;   /* secondary — readable slate gray        */
+      --text-3:      #4b5563;   /* muted — dividers, placeholders         */
+
+      --cyan:        #06b6d4;   /* accent — section headers, active UI    */
+      --cyan-bright: #22d3ee;   /* ASCII art, hover states                */
+      --cyan-dim:    #0e4f5e;   /* subtle backgrounds                     */
+
+      --green:       #4ade80;   /* success / clear                        */
+      --green-mid:   #22c55e;
+      --green-dark:  #14532d;
+
+      --red:         #f87171;   /* match text                             */
+      --red-bg:      #ef4444;   /* match badges                           */
+      --amber:       #fbbf24;
+
+      --glow:    0 0 12px rgba(6,182,212,0.45);
+      --glow-sm: 0 0 6px  rgba(6,182,212,0.30);
+      --glow-g:  0 0 10px rgba(74,222,128,0.50);
+      --glow-r:  0 0 10px rgba(239,68,68,0.50);
     }
 
     html, body {
       height: 100%;
       background: var(--bg);
-      color: var(--green);
+      color: var(--text);
       font-family: 'Courier New', 'Lucida Console', 'Monaco', monospace;
       font-size: 14px;
       line-height: 1.6;
@@ -37,7 +53,7 @@
       position: relative;
     }
 
-    /* Scanlines */
+    /* Scanlines — subtle, doesn't hurt readability */
     .crt::before {
       content: '';
       position: fixed;
@@ -46,8 +62,8 @@
         0deg,
         transparent,
         transparent 3px,
-        rgba(0,0,0,0.18) 3px,
-        rgba(0,0,0,0.18) 4px
+        rgba(0,0,0,0.08) 3px,
+        rgba(0,0,0,0.08) 4px
       );
       pointer-events: none;
       z-index: 100;
@@ -58,7 +74,7 @@
       content: '';
       position: fixed;
       inset: 0;
-      background: radial-gradient(ellipse at center, transparent 60%, rgba(0,0,0,0.55) 100%);
+      background: radial-gradient(ellipse at center, transparent 65%, rgba(0,0,0,0.40) 100%);
       pointer-events: none;
       z-index: 99;
     }
@@ -75,7 +91,7 @@
     .ascii-art {
       font-size: 10px;
       line-height: 1.15;
-      color: var(--green);
+      color: var(--cyan-bright);
       text-shadow: var(--glow);
       white-space: pre;
       overflow-x: auto;
@@ -85,13 +101,13 @@
 
     /* ── Typography ─────────────────────────────────────────── */
     .tagline {
-      color: var(--green-dim);
+      color: var(--text-2);
       font-size: 12px;
       margin-bottom: 4px;
     }
 
     .section-header {
-      color: var(--green-mid);
+      color: var(--cyan);
       font-size: 12px;
       letter-spacing: 2px;
       margin-bottom: 12px;
@@ -99,7 +115,7 @@
     }
 
     .divider {
-      color: var(--green-dark);
+      color: var(--border-mid);
       margin: 18px 0;
       font-size: 13px;
       overflow: hidden;
@@ -113,23 +129,23 @@
 
     label {
       display: block;
-      color: var(--green-dim);
+      color: var(--text-2);
       font-size: 11px;
       letter-spacing: 1px;
       margin-bottom: 4px;
     }
 
     label .hint {
-      color: #003d11;
+      color: var(--text-3);
       font-size: 10px;
     }
 
     input[type="text"],
     textarea {
       width: 100%;
-      background: #020a02;
-      border: 1px solid var(--green-dark);
-      color: var(--green);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text);
       font-family: inherit;
       font-size: 13px;
       padding: 7px 10px;
@@ -137,9 +153,14 @@
       transition: border-color 0.15s, box-shadow 0.15s;
     }
 
+    input[type="text"]::placeholder,
+    textarea::placeholder {
+      color: var(--text-3);
+    }
+
     input[type="text"]:focus,
     textarea:focus {
-      border-color: var(--green-mid);
+      border-color: var(--cyan);
       box-shadow: var(--glow-sm);
     }
 
@@ -160,7 +181,7 @@
       font-family: inherit;
       font-size: 12px;
       cursor: pointer;
-      color: var(--green-dim);
+      color: var(--text-2);
       letter-spacing: 1px;
       padding: 0;
       transition: color 0.15s;
@@ -168,15 +189,15 @@
 
     .mode-btn.active,
     .mode-btn:hover {
-      color: var(--green);
+      color: var(--cyan-bright);
       text-shadow: var(--glow-sm);
     }
 
-    .mode-sep { color: var(--green-dark); }
+    .mode-sep { color: var(--border-mid); }
 
     /* ── Drop zone ──────────────────────────────────────────── */
     .dropzone {
-      border: 1px dashed var(--green-dark);
+      border: 1px dashed var(--border-mid);
       padding: 36px 20px;
       text-align: center;
       cursor: pointer;
@@ -186,29 +207,29 @@
 
     .dropzone:hover,
     .dropzone.drag-over {
-      border-color: var(--green-mid);
-      background: rgba(0,255,65,0.03);
-      box-shadow: inset 0 0 24px rgba(0,255,65,0.04);
+      border-color: var(--cyan);
+      background: rgba(6,182,212,0.04);
+      box-shadow: inset 0 0 24px rgba(6,182,212,0.04);
     }
 
     .dropzone input[type="file"] { display: none; }
 
     .dropzone-icon {
       font-size: 22px;
-      color: var(--green-dim);
+      color: var(--cyan);
       margin-bottom: 8px;
       text-shadow: var(--glow-sm);
     }
 
     .dropzone-label {
-      color: var(--green-mid);
+      color: var(--text);
       font-size: 13px;
       letter-spacing: 2px;
       margin-bottom: 6px;
     }
 
     .dropzone-sub {
-      color: var(--green-dark);
+      color: var(--text-2);
       font-size: 11px;
       letter-spacing: 1px;
     }
@@ -216,14 +237,14 @@
     .file-info {
       margin-top: 10px;
       font-size: 12px;
-      color: var(--green-mid);
+      color: var(--cyan);
       min-height: 18px;
     }
 
     /* ── Advanced options ───────────────────────────────────── */
     .adv-toggle {
       font-size: 11px;
-      color: var(--green-dim);
+      color: var(--text-2);
       cursor: pointer;
       background: none;
       border: none;
@@ -233,7 +254,7 @@
       margin-top: 10px;
       display: block;
     }
-    .adv-toggle:hover { color: var(--green-mid); }
+    .adv-toggle:hover { color: var(--cyan); }
 
     .adv-panel {
       margin-top: 10px;
@@ -242,17 +263,9 @@
     }
     .adv-panel.open { display: flex; }
 
-    .adv-field {
-      flex: 1;
-    }
-
-    .adv-field label {
-      margin-bottom: 4px;
-    }
-
-    .adv-field input {
-      width: 100%;
-    }
+    .adv-field { flex: 1; }
+    .adv-field label { margin-bottom: 4px; }
+    .adv-field input { width: 100%; }
 
     /* ── Actions ────────────────────────────────────────────── */
     .actions {
@@ -263,8 +276,8 @@
     }
 
     .btn-primary {
-      background: var(--green);
-      color: var(--bg);
+      background: var(--cyan);
+      color: #000;
       border: none;
       font-family: inherit;
       font-size: 13px;
@@ -276,20 +289,20 @@
     }
 
     .btn-primary:hover:not(:disabled) {
-      background: #39ff14;
-      box-shadow: 0 0 20px rgba(0,255,65,0.5);
+      background: var(--cyan-bright);
+      box-shadow: var(--glow);
     }
 
     .btn-primary:disabled {
-      background: var(--green-dark);
-      color: var(--green-dim);
+      background: var(--border);
+      color: var(--text-2);
       cursor: not-allowed;
     }
 
     .btn-secondary {
       background: none;
-      border: 1px solid var(--green-dark);
-      color: var(--green-dim);
+      border: 1px solid var(--border-mid);
+      color: var(--text-2);
       font-family: inherit;
       font-size: 12px;
       letter-spacing: 1px;
@@ -299,8 +312,8 @@
     }
 
     .btn-secondary:hover {
-      border-color: var(--green-dim);
-      color: var(--green-mid);
+      border-color: var(--cyan);
+      color: var(--cyan);
     }
 
     /* ── Output ─────────────────────────────────────────────── */
@@ -312,24 +325,24 @@
     }
 
     /* Output line types */
-    .o-dim    { color: var(--green-dark); }
-    .o-cmd    { color: var(--green-dim); }
-    .o-info   { color: var(--green-mid); }
+    .o-dim    { color: var(--text-3); }
+    .o-cmd    { color: var(--text-2); }
+    .o-info   { color: var(--cyan); }
     .o-ok     { color: var(--green); }
     .o-match  { color: var(--red); }
     .o-clear  { color: var(--green); }
     .o-warn   { color: var(--amber); }
 
     .o-entity-header {
-      color: var(--green-mid);
-      border-bottom: 1px solid var(--green-dark);
+      color: var(--text);
+      border-bottom: 1px solid var(--border);
       padding-bottom: 2px;
       margin-top: 4px;
     }
 
     .badge-match {
-      background: var(--red);
-      color: #000;
+      background: var(--red-bg);
+      color: #fff;
       padding: 1px 8px;
       font-weight: bold;
       letter-spacing: 2px;
@@ -337,35 +350,35 @@
 
     .badge-clear {
       background: none;
-      border: 1px solid var(--green-dim);
-      color: var(--green-mid);
+      border: 1px solid var(--green-mid);
+      color: var(--green);
       padding: 1px 8px;
       letter-spacing: 2px;
     }
 
     .badge-flagged {
-      background: var(--red);
+      background: var(--red-bg);
       color: #fff;
       padding: 2px 14px;
       font-size: 15px;
       font-weight: bold;
       letter-spacing: 4px;
-      text-shadow: 0 0 8px rgba(255,51,0,0.8);
+      text-shadow: var(--glow-r);
     }
 
     .badge-safe {
-      background: var(--green);
+      background: var(--green-mid);
       color: #000;
       padding: 2px 14px;
       font-size: 15px;
       font-weight: bold;
       letter-spacing: 4px;
-      text-shadow: 0 0 8px rgba(0,255,65,0.8);
+      text-shadow: var(--glow-g);
     }
 
     .hit-row {
       margin-left: 20px;
-      color: var(--green-dim);
+      color: var(--text-2);
       font-size: 12px;
     }
 
@@ -379,7 +392,7 @@
       display: inline-block;
       width: 9px;
       height: 14px;
-      background: var(--green);
+      background: var(--cyan);
       vertical-align: text-bottom;
       animation: blink 1s step-end infinite;
     }
@@ -668,11 +681,11 @@ async function screenDocument() {
 
   // Print startup sequence
   printLine(`> Initializing OFAC SDN screening...`, 'o-cmd');
-  printLine(`> Document  : ${docName}  (${text.length.toLocaleString()} chars)`, 'o-dim');
-  printLine(`> Threshold : ${threshold}  |  Limit per entity : ${limitPerEntity}`, 'o-dim');
+  printLine(`> Document  : ${docName}  (${text.length.toLocaleString()} chars)`, 'o-cmd');
+  printLine(`> Threshold : ${threshold}  |  Limit per entity : ${limitPerEntity}`, 'o-cmd');
   printBlank();
   printLine(`> Sending document to Vertex AI for entity extraction...`, 'o-cmd');
-  printLine(`> Model     : gemini-2.0-flash-001`, 'o-dim');
+  printLine(`> Model     : gemini-2.0-flash-001`, 'o-cmd');
   printBlank();
 
   // Build request
@@ -719,7 +732,7 @@ async function screenDocument() {
   for (const result of screening_results) {
     const typeTag = `[${result.entity_type.toUpperCase()}]`;
     printHTML(
-      `<span class="o-entity-header">&gt; ${result.entity} &nbsp;<span class="o-dim">${typeTag}</span></span>`
+      `<span class="o-entity-header">&gt; ${result.entity} &nbsp;<span class="o-cmd">${typeTag}</span></span>`
     );
 
     if (result.is_match) {
@@ -733,16 +746,16 @@ async function screenDocument() {
         printHTML(
           `<div class="hit-row">` +
           `  &#9492;&#9472; <span class="o-warn">entry #${hit.sdn_entry_id}</span>` +
-          `  &nbsp;·&nbsp; <span class="o-dim">${conf}</span>` +
+          `  &nbsp;·&nbsp; <span class="o-cmd">${conf}</span>` +
           (hit.primary_name ? `  &nbsp;·&nbsp; ${esc(hit.primary_name)}` : '') +
-          `  &nbsp;·&nbsp; <span class="o-dim">programs: ${esc(progs)}</span>` +
+          `  &nbsp;·&nbsp; <span class="o-cmd">programs: ${esc(progs)}</span>` +
           `</div>`
         );
       }
     } else {
       printHTML(
         `<span style="margin-left:16px">&nbsp;&nbsp;<span class="badge-clear">&nbsp;CLEAR&nbsp;</span>` +
-        `&nbsp; <span class="o-dim">no SDN matches</span></span>`
+        `&nbsp; <span class="o-cmd">no SDN matches</span></span>`
       );
     }
     printBlank();
