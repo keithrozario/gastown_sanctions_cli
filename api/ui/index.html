@@ -412,6 +412,115 @@
       animation: spin-chars 0.4s linear infinite;
     }
 
+    /* ── Entry link ─────────────────────────────────────────── */
+    .entry-link {
+      color: var(--amber);
+      text-decoration: none;
+      cursor: pointer;
+      border-bottom: 1px dashed var(--amber);
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .entry-link:hover {
+      color: var(--cyan-bright);
+      border-color: var(--cyan-bright);
+    }
+
+    /* ── Modal backdrop ─────────────────────────────────────── */
+    .modal-backdrop {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.75);
+      z-index: 200;
+      overflow-y: auto;
+      padding: 40px 20px;
+    }
+    .modal-backdrop.open { display: block; }
+
+    /* ── Modal panel ────────────────────────────────────────── */
+    .modal {
+      max-width: 780px;
+      margin: 0 auto;
+      background: var(--surface);
+      border: 1px solid var(--cyan);
+      box-shadow: 0 0 40px rgba(6,182,212,0.20);
+      position: relative;
+    }
+
+    .modal-header {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      padding: 14px 18px 10px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .modal-title {
+      color: var(--cyan-bright);
+      font-size: 14px;
+      letter-spacing: 2px;
+      text-shadow: var(--glow-sm);
+    }
+
+    .modal-close {
+      background: none;
+      border: 1px solid var(--border-mid);
+      color: var(--text-2);
+      font-family: inherit;
+      font-size: 12px;
+      letter-spacing: 1px;
+      padding: 3px 10px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .modal-close:hover { border-color: var(--red); color: var(--red); }
+
+    .modal-body {
+      padding: 16px 18px 20px;
+      font-size: 12px;
+      line-height: 1.7;
+    }
+
+    .m-section {
+      margin-bottom: 14px;
+    }
+
+    .m-label {
+      color: var(--cyan);
+      font-size: 10px;
+      letter-spacing: 2px;
+      margin-bottom: 4px;
+    }
+
+    .m-value { color: var(--text); }
+    .m-dim   { color: var(--text-2); }
+    .m-warn  { color: var(--amber); }
+    .m-sep   { color: var(--border-mid); margin: 10px 0; }
+
+    .m-tag {
+      display: inline-block;
+      border: 1px solid var(--border-mid);
+      color: var(--text-2);
+      padding: 0 6px;
+      margin: 1px 3px 1px 0;
+      font-size: 11px;
+    }
+
+    .m-tag-red {
+      border-color: var(--red-bg);
+      color: var(--red);
+    }
+
+    .m-row {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    .m-col { flex: 1; min-width: 200px; }
+
+    .m-loading { color: var(--text-3); letter-spacing: 1px; padding: 20px 0; }
+    .m-error   { color: var(--red); padding: 12px 0; }
+
     /* ── Responsive ─────────────────────────────────────────── */
     @media (max-width: 600px) {
       .ascii-art { font-size: 6px; }
@@ -512,6 +621,19 @@
   </section>
 
 </main>
+</div>
+
+<!-- ── SDN Entry Modal ─────────────────────────────────────── -->
+<div class="modal-backdrop" id="modal-backdrop" onclick="onBackdropClick(event)">
+  <div class="modal" id="modal-panel">
+    <div class="modal-header">
+      <span class="modal-title" id="modal-title">// SDN ENTRY</span>
+      <button class="modal-close" onclick="closeModal()">[ CLOSE ]</button>
+    </div>
+    <div class="modal-body" id="modal-body">
+      <div class="m-loading"><span class="spinner"></span> Loading entry...</div>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -771,7 +893,7 @@ async function screenDocument() {
         const progs = hit.programs && hit.programs.length ? hit.programs.join(', ') : '—';
         printHTML(
           `<div class="hit-row">` +
-          `  &#9492;&#9472; <span class="o-warn">entry #${hit.sdn_entry_id}</span>` +
+          `  &#9492;&#9472; <a class="o-warn entry-link" href="#" onclick="openEntry(${hit.sdn_entry_id});return false;">entry #${hit.sdn_entry_id}</a>` +
           `  &nbsp;·&nbsp; <span class="o-cmd">${conf}</span>` +
           (hit.primary_name ? `  &nbsp;·&nbsp; ${esc(hit.primary_name)}` : '') +
           `  &nbsp;·&nbsp; <span class="o-cmd">programs: ${esc(progs)}</span>` +
@@ -824,6 +946,165 @@ function esc(str) {
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;');
+}
+
+/* ── SDN Entry Modal ───────────────────────────────────────── */
+function openEntry(id) {
+  document.getElementById('modal-title').textContent = `// SDN ENTRY #${id}`;
+  document.getElementById('modal-body').innerHTML =
+    '<div class="m-loading"><span class="spinner"></span>&nbsp; Fetching entry...</div>';
+  document.getElementById('modal-backdrop').classList.add('open');
+  document.body.style.overflow = 'hidden';
+
+  fetch(`${window.location.origin}/entry/${id}`)
+    .then(r => r.ok ? r.json() : Promise.reject(`HTTP ${r.status}`))
+    .then(renderEntry)
+    .catch(err => {
+      document.getElementById('modal-body').innerHTML =
+        `<div class="m-error">&gt; ERROR: ${esc(String(err))}</div>`;
+    });
+}
+
+function closeModal() {
+  document.getElementById('modal-backdrop').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+function onBackdropClick(e) {
+  if (e.target === document.getElementById('modal-backdrop')) closeModal();
+}
+
+function tags(arr, cls) {
+  if (!arr || !arr.length) return '<span class="m-dim">—</span>';
+  return arr.map(v => `<span class="m-tag ${cls||''}">${esc(v)}</span>`).join('');
+}
+
+function renderEntry(d) {
+  const lines = [];
+
+  const sep = () => lines.push(`<div class="m-sep">${'─'.repeat(60)}</div>`);
+  const section = (label, html) =>
+    lines.push(`<div class="m-section"><div class="m-label">${label}</div>${html}</div>`);
+
+  // ── Identity ──────────────────────────────────────────────
+  const primaryName = d.primary_name && d.primary_name.full_name
+    ? esc(d.primary_name.full_name) : '—';
+  const typeTag = d.sdn_type ? `<span class="m-tag">${esc(d.sdn_type.toUpperCase())}</span>` : '';
+  section('IDENTITY',
+    `<div class="m-value" style="font-size:14px;margin-bottom:6px;">${primaryName} ${typeTag}</div>` +
+    (d.title  ? `<div class="m-dim">Title: ${esc(d.title)}</div>` : '') +
+    (d.gender ? `<div class="m-dim">Gender: ${esc(d.gender)}</div>` : '')
+  );
+
+  // ── Programs & Authorities ────────────────────────────────
+  sep();
+  section('SANCTIONS PROGRAMS', tags(d.programs, 'm-tag-red'));
+  section('LEGAL AUTHORITIES', tags(d.legal_authorities));
+
+  // ── Personal details ──────────────────────────────────────
+  if (d.dates_of_birth?.length || d.places_of_birth?.length ||
+      d.nationalities?.length  || d.citizenships?.length) {
+    sep();
+    lines.push(`<div class="m-row">`);
+    if (d.dates_of_birth?.length)
+      lines.push(`<div class="m-col"><div class="m-label">DATE OF BIRTH</div>${tags(d.dates_of_birth)}</div>`);
+    if (d.places_of_birth?.length)
+      lines.push(`<div class="m-col"><div class="m-label">PLACE OF BIRTH</div>${tags(d.places_of_birth)}</div>`);
+    if (d.nationalities?.length)
+      lines.push(`<div class="m-col"><div class="m-label">NATIONALITY</div>${tags(d.nationalities)}</div>`);
+    if (d.citizenships?.length)
+      lines.push(`<div class="m-col"><div class="m-label">CITIZENSHIP</div>${tags(d.citizenships)}</div>`);
+    lines.push(`</div>`);
+  }
+
+  // ── Aliases ───────────────────────────────────────────────
+  if (d.aliases?.length) {
+    sep();
+    let aliasHtml = '';
+    for (const a of d.aliases) {
+      const q = a.alias_quality === 'weak' ? ' <span class="m-dim">(weak)</span>' : '';
+      aliasHtml += `<div><span class="m-dim">${esc(a.alias_type||'a.k.a.')}:</span> ` +
+                   `<span class="m-value">${esc(a.full_name||'')}</span>${q}</div>`;
+    }
+    section('ALIASES / AKA', aliasHtml);
+  }
+
+  // ── Addresses ─────────────────────────────────────────────
+  if (d.addresses?.length) {
+    sep();
+    let addrHtml = '';
+    for (const a of d.addresses) {
+      const parts = [a.address, a.city, a.state_province, a.postal_code, a.country, a.region]
+        .filter(Boolean).map(esc);
+      addrHtml += `<div class="m-dim">&#9492;&#9472; ${parts.join(', ')}</div>`;
+    }
+    section('KNOWN ADDRESSES', addrHtml);
+  }
+
+  // ── ID Documents ──────────────────────────────────────────
+  if (d.id_documents?.length) {
+    sep();
+    let docHtml = '';
+    for (const doc of d.id_documents) {
+      const fraud = doc.is_fraudulent ? ' <span class="m-tag m-tag-red">FRAUDULENT</span>' : '';
+      const detail = [doc.id_number, doc.country, doc.issue_date && `issued ${doc.issue_date}`,
+                      doc.expiry_date && `exp ${doc.expiry_date}`].filter(Boolean).map(esc).join(' · ');
+      docHtml += `<div><span class="m-dim">${esc(doc.id_type||'ID')}:</span> ` +
+                 `<span class="m-value">${detail}</span>${fraud}</div>`;
+    }
+    section('IDENTITY DOCUMENTS', docHtml);
+  }
+
+  // ── Vessel info ───────────────────────────────────────────
+  if (d.vessel_info) {
+    sep();
+    const v = d.vessel_info;
+    const fields = [
+      v.vessel_type        && `Type: ${esc(v.vessel_type)}`,
+      v.vessel_flag        && `Flag: ${esc(v.vessel_flag)}`,
+      v.vessel_owner       && `Owner: ${esc(v.vessel_owner)}`,
+      v.vessel_tonnage     && `Tonnage: ${esc(v.vessel_tonnage)}`,
+      v.vessel_call_sign   && `Call Sign: ${esc(v.vessel_call_sign)}`,
+      v.vessel_mmsi        && `MMSI: ${esc(v.vessel_mmsi)}`,
+      v.vessel_imo         && `IMO: ${esc(v.vessel_imo)}`,
+    ].filter(Boolean);
+    section('VESSEL INFORMATION', fields.map(f => `<div class="m-dim">${f}</div>`).join(''));
+  }
+
+  // ── Aircraft info ─────────────────────────────────────────
+  if (d.aircraft_info) {
+    sep();
+    const a = d.aircraft_info;
+    const fields = [
+      a.aircraft_type         && `Type: ${esc(a.aircraft_type)}`,
+      a.aircraft_manufacturer && `Manufacturer: ${esc(a.aircraft_manufacturer)}`,
+      a.aircraft_serial       && `Serial: ${esc(a.aircraft_serial)}`,
+      a.aircraft_tail_number  && `Tail: ${esc(a.aircraft_tail_number)}`,
+      a.aircraft_operator     && `Operator: ${esc(a.aircraft_operator)}`,
+    ].filter(Boolean);
+    section('AIRCRAFT INFORMATION', fields.map(f => `<div class="m-dim">${f}</div>`).join(''));
+  }
+
+  // ── Remarks ───────────────────────────────────────────────
+  if (d.remarks) {
+    sep();
+    section('REMARKS', `<div class="m-dim" style="white-space:pre-wrap;">${esc(d.remarks)}</div>`);
+  }
+  if (d.additional_sanctions_info) {
+    section('ADDITIONAL SANCTIONS INFO',
+      `<div class="m-dim">${esc(d.additional_sanctions_info)}</div>`);
+  }
+
+  // ── Footer ────────────────────────────────────────────────
+  sep();
+  lines.push(
+    `<div class="m-dim" style="font-size:11px;">` +
+    `SDN Entry ID: ${esc(String(d.sdn_entry_id))}` +
+    (d.publication_date ? `&nbsp;·&nbsp; Published: ${esc(String(d.publication_date))}` : '') +
+    `</div>`
+  );
+
+  document.getElementById('modal-body').innerHTML = lines.join('');
 }
 </script>
 </body>
